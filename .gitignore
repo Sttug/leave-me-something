@@ -1,0 +1,5 @@
+node_modules/
+PAUSED
+state.json
+config.json
+*.log

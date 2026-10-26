@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"<SKILL_DIR>/scripts/quota_guard.mjs\" refresh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"<SKILL_DIR>/scripts/quota_guard.mjs\" gate"
+          }
+        ]
+      }
+    ]
+  }
+}
