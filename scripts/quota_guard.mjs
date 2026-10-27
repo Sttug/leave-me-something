@@ -260,9 +260,30 @@ function cachedHits(config) {
 // Pauses when over the threshold. The pause holds until the user runs "resume".
 // Returns "paused" only on the transition, so the user is told once.
 function syncPause(hits) {
-  if (existsSync(PAUSE) || !hits.length) return null;
+  const state = readJson(STATE, {});
+  if (!hits.length) {
+    if (state.suppressed) writeJson(STATE, { ...state, suppressed: false });
+    return null;
+  }
+  if (existsSync(PAUSE) || state.suppressed) return null;
   writeJson(PAUSE, { since: new Date().toISOString(), reason: hits.join("; ") });
   return "paused";
+}
+
+// The command a hook is about to run: from the hook's JSON on stdin, or from QUOTA_GUARD_COMMAND (OpenCode plugin).
+function toolCommand() {
+  if (process.env.QUOTA_GUARD_COMMAND) return process.env.QUOTA_GUARD_COMMAND;
+  if (process.stdin.isTTY) return "";
+  try {
+    return JSON.parse(readFileSync(0, "utf8") || "{}").tool_input?.command ?? "";
+  } catch {
+    return "";
+  }
+}
+
+// Only the exact resume command is allowed through while paused, so the guard can be lifted from inside the session.
+function isResumeCommand(command) {
+  return /^\s*node\s+"?[^"\s]*quota_guard\.mjs"?\s+resume\s*$/.test(command);
 }
 
 function readJson(path, fallback) {
@@ -306,6 +327,7 @@ switch (cmd) {
   }
 
   case "gate": {
+    if (isResumeCommand(toolCommand())) break;
     syncPause(cachedHits(config));
     if (existsSync(PAUSE)) {
       console.error(`Quota guard: paused (${readJson(PAUSE, {}).reason}). This tool call is blocked. Work continues automatically when usage drops under ${config.threshold}%, or the user can run "resume".`);
@@ -406,7 +428,8 @@ switch (cmd) {
 
   case "resume": {
     if (existsSync(PAUSE)) unlinkSync(PAUSE);
-    console.log("resumed");
+    writeJson(STATE, { ...readJson(STATE, {}), suppressed: true });
+    console.log("resumed. The guard stays off until usage drops under the threshold and rises again.");
     break;
   }
 
