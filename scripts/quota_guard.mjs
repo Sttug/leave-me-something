@@ -48,9 +48,24 @@ const DEFAULTS = {
   threshold: 90,
   window: "both",
   countCacheRead: false,
+  schedule: null,
   activePlans: ["claude-pro"],
   plans: {},
 };
+
+// schedule is { from: "22:00", to: "08:00" } in local time, or null to guard all day.
+// The window may cross midnight.
+function inSchedule(config, now = new Date()) {
+  if (!config.schedule) return true;
+  const toMinutes = (hhmm) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  };
+  const cur = now.getHours() * 60 + now.getMinutes();
+  const from = toMinutes(config.schedule.from);
+  const to = toMinutes(config.schedule.to);
+  return from <= to ? cur >= from && cur < to : cur >= from || cur < to;
+}
 
 function loadConfig() {
   mkdirSync(BASE, { recursive: true });
@@ -225,7 +240,10 @@ function printUsage(config, plans) {
     }
     if (p.note) console.log(`  ${p.note}`);
   }
-  console.log(`threshold: ${config.threshold}% | monitoring: ${config.window}`);
+  const schedule = config.schedule
+    ? `${config.schedule.from}-${config.schedule.to} (${inSchedule(config) ? "active now" : "inactive now"})`
+    : "always";
+  console.log(`threshold: ${config.threshold}% | monitoring: ${config.window} | schedule: ${schedule}`);
 }
 
 function readPause() {
@@ -236,6 +254,7 @@ function readPause() {
 function applyThreshold(config) {
   const plans = measureAll(config);
   const hits = [];
+  if (!inSchedule(config)) return { plans, hits, outsideSchedule: true };
   for (const p of plans) {
     for (const name of ["5h", "week"]) {
       const w = p.windows[name];
@@ -250,10 +269,20 @@ function applyThreshold(config) {
 // Reuses a measurement from the last 60 seconds so every tool call does not rescan transcripts.
 function cachedHits(config) {
   const state = readJson(STATE, {});
-  const sameRules = state.threshold === config.threshold && state.window === config.window;
+  const sameRules =
+    state.threshold === config.threshold &&
+    state.window === config.window &&
+    JSON.stringify(state.schedule ?? null) === JSON.stringify(config.schedule);
   if (sameRules && state.ts && Date.now() - state.ts < 60_000) return state.hits;
   const { hits } = applyThreshold(config);
-  writeJson(STATE, { ...state, ts: Date.now(), hits, threshold: config.threshold, window: config.window });
+  writeJson(STATE, {
+    ...state,
+    ts: Date.now(),
+    hits,
+    threshold: config.threshold,
+    window: config.window,
+    schedule: config.schedule,
+  });
   return hits;
 }
 
@@ -374,7 +403,7 @@ switch (cmd) {
 
   case "set": {
     const [key, raw] = args;
-    const valid = ["threshold", "window", "countCacheRead"];
+    const valid = ["threshold", "window", "countCacheRead", "schedule"];
     if (!valid.includes(key)) {
       console.log(`unknown key: ${key}. valid: ${valid.join(", ")}`);
       process.exit(1);
@@ -385,6 +414,15 @@ switch (cmd) {
     if (key === "window" && !["5h", "week", "both"].includes(value)) {
       console.log("window must be 5h, week or both");
       process.exit(1);
+    }
+    if (key === "schedule") {
+      const match = /^(\d{1,2}:\d{2})-(\d{1,2}:\d{2})$/.exec(raw ?? "");
+      if (raw === "off") value = null;
+      else if (match) value = { from: match[1], to: match[2] };
+      else {
+        console.log('schedule must be "HH:MM-HH:MM" (local time, e.g. 22:00-08:00) or "off"');
+        process.exit(1);
+      }
     }
     config[key] = value;
     saveConfig(config);

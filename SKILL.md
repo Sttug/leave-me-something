@@ -25,7 +25,7 @@ Plan details and sources: `references/plans.md`. Read it when the user asks abou
 Run commands with:
 
 ```
-node "C:\Users\Administrador\.claude\skills\leave-me-something\scripts\quota_guard.mjs" <command>
+node "<SKILL_DIR>/scripts/quota_guard.mjs" <command>
 ```
 
 ## Commands
@@ -41,7 +41,7 @@ node "C:\Users\Administrador\.claude\skills\leave-me-something\scripts\quota_gua
 | `plan` | Show active plans |
 | `plan <id>` | Make `<id>` the only active plan |
 | `plan add <id>` / `plan remove <id>` | Add or remove one plan from the active set |
-| `set <key> <value>` | `threshold` (default 90), `window` (`5h`, `week`, or `both`; default `both`), `countCacheRead` (default false) |
+| `set <key> <value>` | `threshold` (default 90), `window` (`5h`, `week`, or `both`; default `both`), `countCacheRead` (default false), `schedule` (`HH:MM-HH:MM` in local time, e.g. `22:00-08:00`, or `off` to guard all day; default `off`) |
 | `calibrate <5h\|week> <percent>` | Set the active Claude plan's limit from the percent shown in `/usage` |
 | `limit <5h\|week> <tokens>` | Set the active Claude plan's limit manually |
 | `resume` | Lift the pause. Only when the user asks |
