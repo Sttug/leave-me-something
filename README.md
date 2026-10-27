@@ -79,12 +79,26 @@ node "$SKILL/scripts/quota_guard.mjs" <command>
 | `plan`, `plan <id>`, `plan add <id>`, `plan remove <id>` | Manage active plans |
 | `set threshold <n>` | Change the threshold (default `90`) |
 | `set window <5h\|week\|both>` | Choose which windows to guard (default `both`) |
+| `set schedule <HH:MM-HH:MM>` or `set schedule off` | Guard only inside a time range, e.g. `22:00-08:00` (default `off`, always on) |
 | `set countCacheRead <true\|false>` | Count cache reads toward Claude usage (default `false`) |
 | `calibrate <5h\|week> <percent>` | Set a Claude plan limit from the percent in `/usage` |
 | `limit <5h\|week> <tokens>` | Set a Claude plan limit manually |
 | `refresh`, `gate` | Used by hooks. You don't need to run them |
 
 Plan IDs: `claude-pro`, `claude-max-5x`, `claude-max-20x`, `chatgpt-plus`, `chatgpt-business`, `chatgpt-pro`.
+
+## Schedule
+
+By default the guard watches usage all day. To watch only at night, so you can leave jobs running unattended:
+
+```bash
+node "$SKILL/scripts/quota_guard.mjs" set schedule 22:00-08:00
+```
+
+- The range uses your local time and may cross midnight.
+- Outside the range, the guard does not pause or block anything, even if usage is high.
+- A pause that starts inside the range holds until you run `resume`.
+- `set schedule off` guards all day again.
 
 ## Using it from scripts and other tools
 
@@ -108,6 +122,8 @@ node "$SKILL/scripts/quota_guard.mjs" check || exit 0
 - **Codex hooks don't run:** open `/hooks` in Codex and approve the hooks. Codex skips new or changed hooks until they are trusted.
 - **Claude says "limit not set":** run `calibrate` for each Claude window you monitor.
 - **Pause won't go away:** run `resume`, or check `usage` to see which window is over the threshold.
+- **Resuming from inside Claude Code:** type `/leave-me-something resume`. The hook lets only the exact `resume` command through while paused. Chained commands stay blocked.
+- **Resume doesn't stick:** if usage is still over the threshold, the guard stays quiet until usage drops below it and rises again. To continue right away, raise the threshold with `set threshold <n>`.
 
 ## Contributing
 
