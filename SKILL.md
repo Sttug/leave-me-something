@@ -25,7 +25,7 @@ Plan details and sources: `references/plans.md`. Read it when the user asks abou
 Run commands with:
 
 ```
-node "<SKILL_DIR>/scripts/quota_guard.mjs" <command>
+node "C:\Users\Administrador\.claude\skills\leave-me-something\scripts\quota_guard.mjs" <command>
 ```
 
 ## Commands
@@ -71,6 +71,7 @@ Run `check` first.
 - The pause is total. It stops all automated work when the threshold is reached, and it holds until the user runs `resume`. It does not clear on its own when the window resets.
 - Stop any loop, scheduled job, or background work you started in this session, once. Report what was stopped. Processes already running in the background are not killed.
 - Do not run `resume` on your own. The user decides when to continue.
+- When the user's message is `/leave-me-something resume` (or they clearly ask to resume), run this exact command as your first and only tool call, with nothing chained to it: `node "<SKILL_DIR>/scripts/quota_guard.mjs" resume`. The pause hook allows exactly this command, so it is the only way to resume from inside the session.
 - Explain that the hooks block tool calls in every session, interactive ones too, while paused. Claude can still answer in text.
 
 ### When the user only asks about quota
